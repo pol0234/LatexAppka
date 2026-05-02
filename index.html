@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LaTeX & Markdown Viewer for Word</title>
+
+<!-- PWA META TAGY -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#17171a">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<!-- KaTeX -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg: #0f0f11; --surface: #17171a; --border: #2a2a30; --border-hi: #3d3d48;
+  --text: #e8e6e0; --text-dim: #6b6977; --text-mid: #a09cac;
+  --accent: #c084fc; --accent2: #38bdf8; --accent3: #4ade80; --danger: #f87171;
+  --mono: 'JetBrains Mono', monospace; --serif: 'Fraunces', serif; --sans: 'DM Sans', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); display: flex; flex-direction: column; }
+.topbar { height: 52px; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; gap: 16px; flex-shrink: 0; background: var(--surface); }
+.logo { font-family: var(--serif); font-size: 18px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.logo .badge { font-family: var(--mono); font-size: 9px; background: var(--accent2); color: #001a2e; padding: 2px 7px; text-transform: uppercase; border-radius: 2px; }
+.topbar-spacer { flex: 1; }
+.btn { font-family: var(--mono); font-size: 11px; padding: 7px 14px; border: 1px solid var(--border-hi); background: transparent; color: var(--text-mid); cursor: pointer; border-radius: 4px; transition: all .15s; }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.primary { background: #3b82f6; color: #fff; border-color: #3b82f6; font-weight: 500; display: flex; align-items: center; gap: 6px;}
+.btn.primary:hover { background: #60a5fa; color: #fff; }
+.workspace { flex: 1; display: flex; overflow: hidden; }
+.pane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.pane + .pane { border-left: 1px solid var(--border); }
+.pane-header { height: 40px; display: flex; align-items: center; padding: 0 16px; gap: 10px; border-bottom: 1px solid var(--border); background: var(--bg); flex-shrink: 0;}
+.pane-label { font-family: var(--mono); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); }
+.pane-indicator { width: 6px; height: 6px; border-radius: 50%; background: var(--border-hi); }
+.pane-indicator.active { background: var(--accent3); }
+.input-area, .output-area { flex: 1; overflow-y: auto; padding: 24px 28px; font-family: var(--sans); font-size: 15px; line-height: 1.85; color: var(--text); white-space: pre-wrap; outline: none; }
+.input-area { background: var(--bg); }
+.output-area { background: var(--surface); border-left: 1px solid var(--border); }
+.input-area:empty:before { content: attr(data-placeholder); color: var(--text-dim); font-style: italic; pointer-events: none; }
+.input-area::-webkit-scrollbar, .output-area::-webkit-scrollbar { width: 6px; }
+.input-area::-webkit-scrollbar-thumb, .output-area::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 3px; }
+.output-area .katex-display { background: rgba(56,189,248,0.05); border-left: 3px solid var(--accent2); padding: 14px 20px; margin: 16px 0; overflow-x: auto; white-space: normal;}
+.output-area .katex { color: var(--text); font-size: 1.1em; }
+.input-area h1, .output-area h1 { font-family: var(--serif); font-size: 1.7rem; margin: 0 0 20px; }
+.input-area h2, .output-area h2 { font-family: var(--serif); font-size: 1.25rem; margin: 28px 0 12px; color: var(--accent); }
+.input-area p, .output-area p { margin-bottom: 14px; }
+.input-area ul, .output-area ul, .input-area ol, .output-area ol { margin: 0 0 14px 24px; padding-left: 20px;}
+.statusbar { height: 28px; border-top: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; gap: 20px; background: var(--surface); }
+.status-item { font-family: var(--mono); font-size: 10px; color: var(--text-dim); display: flex; align-items: center; gap: 6px; }
+.status-item .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent3); }
+.toast { position: fixed; bottom: 40px; left: 50%; transform: translate(-50%, 20px); background: #3b82f6; color: #fff; font-family: var(--mono); font-size: 12px; padding: 10px 22px; border-radius: 4px; opacity: 0; transition: all .25s; pointer-events: none; z-index: 1000;}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.divider { width: 4px; background: var(--border); cursor: col-resize; transition: background .15s; z-index: 10;}
+.divider:hover, .divider.dragging { background: var(--accent); }
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: var(--text-dim); height: 100%;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">LaTeX Viewer <span class="badge">Word Ready</span></div>
+  <div class="topbar-spacer"></div>
+  <button class="btn" onclick="clearAll()">Vymazať</button>
+  <button class="btn primary" onclick="copyForWord()">Kopírovať pre Word</button>
+</div>
+
+<div class="workspace" id="workspace">
+  <div class="pane" id="paneLeft">
+    <div class="pane-header">
+      <div class="pane-indicator" id="inputIndicator"></div>
+      <span class="pane-label">Vstup (Ctrl+V)</span>
+    </div>
+    <div class="input-area" id="inputArea" contenteditable="true" spellcheck="false" data-placeholder="Sem vlož priamo skopírovaný text z Gemini..."></div>
+  </div>
+  
+  <div class="divider" id="divider"></div>
+
+  <div class="pane" id="paneRight">
+    <div class="pane-header">
+      <div class="pane-indicator active"></div>
+      <span class="pane-label">Náhľad (S renderovanými vzorcami)</span>
+    </div>
+    <div class="output-area" id="outputArea">
+      <div class="empty-state">Vložte text na vykreslenie.</div>
+    </div>
+  </div>
+</div>
+
+<div class="statusbar">
+  <div class="status-item"><span class="dot"></span> PWA Ready</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// PWA Registrácia Service Workera
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      console.log('ServiceWorker zaregistrovaný', reg);
+    }).catch(err => {
+      console.error('Chyba ServiceWorkera', err);
+    });
+  });
+}
+
+let renderTimeout = null;
+const inputArea = document.getElementById('inputArea');
+const outputArea = document.getElementById('outputArea');
+
+inputArea.addEventListener('input', () => {
+  clearTimeout(renderTimeout);
+  document.getElementById('inputIndicator').style.background = '#facc15';
+  renderTimeout = setTimeout(render, 300);
+});
+
+function render() {
+  const rawHTML = inputArea.innerHTML;
+  if (!inputArea.innerText.trim()) {
+    outputArea.innerHTML = '<div class="empty-state">Vložte text na vykreslenie.</div>';
+    document.getElementById('inputIndicator').style.background = 'var(--border-hi)';
+    return;
+  }
+
+  outputArea.innerHTML = rawHTML;
+  try {
+    renderMathInElement(outputArea, {
+      delimiters: [
+        { left: '$$', right: '$$', display: true },
+        { left: '\\[', right: '\\]', display: true },
+        { left: '$', right: '$', display: false },
+        { left: '\\(', right: '\\)', display: false }
+      ],
+      throwOnError: false, trust: true, output: 'htmlAndMathml' 
+    });
+    document.getElementById('inputIndicator').style.background = 'var(--accent3)';
+  } catch(e) {
+    document.getElementById('inputIndicator').style.background = 'var(--danger)';
+  }
+}
+
+async function copyForWord() {
+  const content = outputArea.innerHTML;
+  if (!content || content.includes('empty-state')) return showToast('⚠ Nič na kopírovanie');
+
+  const clone = outputArea.cloneNode(true);
+  clone.querySelectorAll('.katex-html').forEach(el => el.remove());
+  clone.querySelectorAll('.katex-mathml').forEach(el => {
+    el.removeAttribute('class'); 
+    el.style.display = 'inline'; 
+  });
+
+  const cleanHtml = clone.innerHTML;
+  const wordReadyHtml = `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: 'Calibri', 'DM Sans', sans-serif; font-size: 11pt; color: #000000; background: #ffffff; }
+        h1, h2, h3 { color: #000000; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 12pt; }
+        th, td { border: 1pt solid #000000; padding: 4pt 8pt; text-align: left; vertical-align: top; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+      </style>
+    </head>
+    <body>${cleanHtml}</body>
+    </html>
+  `;
+
+  try {
+    const blobHtml = new Blob([wordReadyHtml], { type: 'text/html' });
+    const blobText = new Blob([clone.innerText], { type: 'text/plain' });
+    const clipboardItem = new ClipboardItem({ 'text/html': blobHtml, 'text/plain': blobText });
+    await navigator.clipboard.write([clipboardItem]);
+    showToast('✓ Vložte do Wordu (Ctrl+V)');
+  } catch (err) {
+    showToast('⚠ Kopírovanie zlyhalo.');
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+function clearAll() { inputArea.innerHTML = ''; render(); inputArea.focus(); }
+
+const divider = document.getElementById('divider');
+const paneLeft = document.getElementById('paneLeft');
+const workspace = document.getElementById('workspace');
+let dragging = false;
+
+divider.addEventListener('mousedown', () => { dragging = true; divider.classList.add('dragging'); document.body.style.cursor = 'col-resize'; });
+document.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  const rect = workspace.getBoundingClientRect();
+  const left = Math.max(200, Math.min(e.clientX - rect.left, rect.width - 200));
+  paneLeft.style.flex = 'none'; paneLeft.style.width = left + 'px';
+});
+document.addEventListener('mouseup', () => { dragging = false; divider.classList.remove('dragging'); document.body.style.cursor = ''; });
+</script>
+</body>
+</html>
