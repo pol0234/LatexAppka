@@ -148,42 +148,51 @@ function render() {
 }
 
 async function copyForWord() {
-  const content = outputArea.innerHTML;
-  if (!content || content.includes('empty-state')) return showToast('⚠ Nič na kopírovanie');
+  const content = outputArea.innerHTML;
+  if (!content || content.includes('empty-state')) return showToast('⚠ Nič na kopírovanie');
 
-  const clone = outputArea.cloneNode(true);
-  clone.querySelectorAll('.katex-html').forEach(el => el.remove());
-  clone.querySelectorAll('.katex-mathml').forEach(el => {
-    el.removeAttribute('class'); 
-    el.style.display = 'inline'; 
-  });
+  const clone = outputArea.cloneNode(true);
 
-  const cleanHtml = clone.innerHTML;
-  const wordReadyHtml = `
-    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
-    <head>
-      <meta charset="utf-8">
-      <style>
-        body { font-family: 'Calibri', 'DM Sans', sans-serif; font-size: 11pt; color: #000000; background: #ffffff; }
-        h1, h2, h3 { color: #000000; }
-        table { border-collapse: collapse; width: 100%; margin-bottom: 12pt; }
-        th, td { border: 1pt solid #000000; padding: 4pt 8pt; text-align: left; vertical-align: top; }
-        th { background-color: #f2f2f2; font-weight: bold; }
-      </style>
-    </head>
-    <body>${cleanHtml}</body>
-    </html>
-  `;
+  // OPRAVA 1: Extrahovanie čistého MathML pre Word
+  clone.querySelectorAll('.katex').forEach(katexContainer => {
+    const mathmlNode = katexContainer.querySelector('.katex-mathml math');
+    if (mathmlNode) {
+      // Odstránime celý KaTeX balast a nahradíme ho čistým <math> tagom.
+      // Word tak presne vie, že ide o rovnicu a natívne ju prevedie.
+      katexContainer.replaceWith(mathmlNode);
+    }
+  });
 
-  try {
-    const blobHtml = new Blob([wordReadyHtml], { type: 'text/html' });
-    const blobText = new Blob([clone.innerText], { type: 'text/plain' });
+  const cleanHtml = clone.innerHTML;
+  // OPRAVA 2: Pridanie MathML menného priestoru (xmlns:m) do hlavičky, aby to Word určite pochopil
+  const wordReadyHtml = `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: 'Calibri', 'DM Sans', sans-serif; font-size: 11pt; color: #000000; background: #ffffff; }
+        h1, h2, h3 { color: #000000; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 12pt; }
+        th, td { border: 1pt solid #000000; padding: 4pt 8pt; text-align: left; vertical-align: top; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+      </style>
+    </head>
+    <body>${cleanHtml}</body>
+    </html>
+  `;
+
+  try {
+    const blobHtml = new Blob([wordReadyHtml], { type: 'text/html' });
+    // OPRAVA 3: innerText ťaháme z reálneho outputArea, nie z odpojeného clone elementu
+    const blobText = new Blob([outputArea.innerText], { type: 'text/plain' });
+    
     const clipboardItem = new ClipboardItem({ 'text/html': blobHtml, 'text/plain': blobText });
-    await navigator.clipboard.write([clipboardItem]);
-    showToast('✓ Vložte do Wordu (Ctrl+V)');
-  } catch (err) {
-    showToast('⚠ Kopírovanie zlyhalo.');
-  }
+    await navigator.clipboard.write([clipboardItem]);
+    showToast('✓ Vložte do Wordu (Ctrl+V)');
+  } catch (err) {
+    showToast('⚠ Kopírovanie zlyhalo.');
+    console.error('Clipboard error:', err);
+  }
 }
 
 function showToast(msg) {
